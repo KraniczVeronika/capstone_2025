@@ -373,46 +373,8 @@ print(pd.Series(y_train_smote).value_counts())
 
 """#Models
 
-## Evaluation function
+##Baseline and ML cLassifier
 """
-
-def evaluate_model(y_true, y_pred, y_prob, model_name):
-    acc = accuracy_score(y_true, y_pred)
-    prec = precision_score(y_true, y_pred)
-    rec = recall_score(y_true, y_pred)
-    f1 = f1_score(y_true, y_pred)
-    auc = roc_auc_score(y_true, y_prob)
-
-    print(f"\n{model_name} Evaluation:")
-    print(classification_report(y_true, y_pred))
-    print(f"Accuracy: {acc:.3f} | Precision: {prec:.3f} | Recall: {rec:.3f} | F1-score: {f1:.3f} | ROC AUC: {auc:.3f}")
-
-    sns.heatmap(confusion_matrix(y_true, y_pred), annot=True, fmt='d', cmap='Blues')
-    plt.title(f"Confusion Matrix - {model_name}")
-    plt.xlabel("Predicted")
-    plt.ylabel("Actual")
-    plt.show()
-
-    fpr, tpr, _ = roc_curve(y_true, y_prob)
-    plt.plot(fpr, tpr, label=f'{model_name} (AUC = {auc:.2f})')
-    plt.plot([0, 1], [0, 1], 'k--')
-    plt.xlabel("False Positive Rate")
-    plt.ylabel("True Positive Rate")
-    plt.title(f"ROC Curve - {model_name}")
-    plt.legend()
-    plt.grid(True)
-    plt.show()
-
-    return {
-        'model': model_name,
-        'accuracy': acc,
-        'precision': prec,
-        'recall': rec,
-        'f1': f1,
-        'auc': auc
-    }
-
-"""##Baseline and ML cLassifier"""
 
 # Most frequent class
 baseline_pred = [y_train.mode()[0]] * len(y_test)
@@ -644,15 +606,17 @@ plt.show()
 
 """##Compare Train and Test Performance"""
 
-def compare_train_test(model, X_train, y_train, X_test, y_test, model_name):
-    # Predictions
-    y_train_pred = model.predict(X_train)
-    y_train_prob = model.predict_proba(X_train)[:, 1]
+def compare_train_test(model, X_train, y_train, X_test, y_test, model_name, is_keras=False):
+    if is_keras:
+        y_train_prob = model.predict(X_train).flatten()
+        y_test_prob = model.predict(X_test).flatten()
+    else:
+        y_train_prob = model.predict_proba(X_train)[:, 1]
+        y_test_prob = model.predict_proba(X_test)[:, 1]
 
-    y_test_pred = model.predict(X_test)
-    y_test_prob = model.predict_proba(X_test)[:, 1]
+    y_train_pred = (y_train_prob >= 0.5).astype(int)
+    y_test_pred = (y_test_prob >= 0.5).astype(int)
 
-    # Metrics
     def get_metrics(y_true, y_pred, y_prob):
         return {
             "Accuracy": accuracy_score(y_true, y_pred),
@@ -665,7 +629,6 @@ def compare_train_test(model, X_train, y_train, X_test, y_test, model_name):
     train_metrics = get_metrics(y_train, y_train_pred, y_train_prob)
     test_metrics = get_metrics(y_test, y_test_pred, y_test_prob)
 
-    #Display
     comparison_df = pd.DataFrame([train_metrics, test_metrics], index=["Train", "Test"])
     print(f"\nTrain vs. Test Performance for {model_name}")
     display(comparison_df.round(3))
@@ -676,6 +639,7 @@ def compare_train_test(model, X_train, y_train, X_test, y_test, model_name):
 
 compare_train_test(logreg, X_train, y_train, X_test, y_test, "Logistic Regression")
 compare_train_test(rf, X_train, y_train, X_test, y_test, "Random Forest")
+compare_train_test(model, X_train, y_train, X_test, y_test, "Deep Learning (MLP)", is_keras=True)
 
 """##Final Model Comaprison"""
 
@@ -792,11 +756,10 @@ joblib.dump(best_rf, "best_model.pkl")
 
 model.save("best_mlp_model.h5")
 
-# Save best model based on name
 if best_model_name == "RF Tuned":
     joblib.dump(best_rf, "best_model.pkl")
 elif best_model_name == "RF":
-    joblib.dump(rf_default, "best_model.pkl")
+    joblib.dump(rf, "best_model.pkl")
 elif best_model_name == "LogReg":
     joblib.dump(logreg, "best_model.pkl")
 elif best_model_name == "LogReg SMOTE":
