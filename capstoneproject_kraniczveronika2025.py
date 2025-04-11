@@ -54,6 +54,9 @@ print(df.columns)
 ###Converting data types and handling missing values
 """
 
+# Define columns
+cols_to_convert = ['Age', 'RestingBP', 'Cholesterol', 'MaxHR', 'Oldpeak']
+
 #Check non numeric values
 for col in cols_to_convert:
     non_numeric = df[~df[col].astype(str).str.match(r'^-?\d+(\.\d+)?$', na=False)][col]
@@ -65,6 +68,8 @@ for col in cols_to_convert:
 for col in cols_to_convert:
     if df[col].dtype not in ['int64', 'float64']:
         df[col] = pd.to_numeric(df[col], errors='coerce')
+
+df['HeartDisease'] = pd.to_numeric(df['HeartDisease'], errors='coerce')
 
 print("Number of original rows:", df.shape[0])
 print("Number of non complete rows:", df.isnull().any(axis=1).sum())
@@ -291,6 +296,10 @@ scores = cross_val_score(pipeline, X_train, y_train, cv=5, scoring='f1')
 print("Cross-validated F1 scores:", scores)
 
 #Logistic Regression (L1 regularization)
+from sklearn.preprocessing import StandardScaler
+
+#Create X_scaled
+X_scaled = StandardScaler().fit_transform(X)
 logreg = LogisticRegression(penalty='l1', solver='liblinear')
 logreg.fit(X_scaled, y)
 importance_lr = pd.Series(logreg.coef_[0], index=X.columns)
@@ -362,7 +371,7 @@ print(y_train.value_counts())
 print("\nSMOTE-resampled class distribution:")
 print(pd.Series(y_train_smote).value_counts())
 
-"""#Deep Learning Model
+"""#Models
 
 ## Evaluation function
 """
@@ -424,7 +433,7 @@ baseline_prob = [baseline_class] * len(y_test)  # csak dummy, hogy működjön a
 # Evaluate baseline using the same function as other models
 baseline_metrics = evaluate_model(y_test, baseline_pred, baseline_prob, "Baseline (Majority Class)")
 
-"""##Logistic Regression"""
+"""##Logistic Regression Models"""
 
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import classification_report, confusion_matrix, roc_auc_score, roc_curve
@@ -450,17 +459,18 @@ plt.xlabel("Predicted")
 plt.ylabel("Actual")
 plt.show()
 
-"""###Evaluation Metrics"""
+"""###Default Logistic Regression"""
 
-logreg = LogisticRegression(max_iter=1000)
+# Default Logistic Regression
+logreg = LogisticRegression(max_iter=2000)
 logreg.fit(X_train, y_train)
 y_pred_logreg = logreg.predict(X_test)
 y_prob_logreg = logreg.predict_proba(X_test)[:, 1]
 
-# Run evaluation
-metrics_logreg = evaluate_model(y_test, y_pred_logreg, y_prob_logreg, "Logistic Regression")
+#Evaluation
+metrics_logreg = evaluate_model(y_test, y_pred_logreg, y_prob_logreg, "Logistic Regression (Default)")
 
-"""###Handling Class Imbalance"""
+"""###Logistic Regression with class_weight"""
 
 # Model with class_weight='balanced' to address class imbalance
 logreg_balanced = LogisticRegression(max_iter=1000, class_weight='balanced')
@@ -471,17 +481,19 @@ y_prob_logreg_bal = logreg_balanced.predict_proba(X_test)[:, 1]
 # Evaluation
 metrics_logreg_bal = evaluate_model(y_test, y_pred_logreg_bal, y_prob_logreg_bal, "Logistic Regression (Balanced)")
 
-"""###SMOTE"""
+"""###Logistic Regression with SMOTE"""
 
+#Model with SMOTE
 logreg_smote = LogisticRegression(max_iter=1000)
 logreg_smote.fit(X_train_smote, y_train_smote)
 
 y_pred_logreg_smote = logreg_smote.predict(X_test)
 y_prob_logreg_smote = logreg_smote.predict_proba(X_test)[:, 1]
 
+#Evaluation
 metrics_logreg_smote = evaluate_model(y_test, y_pred_logreg_smote, y_prob_logreg_smote, "Logistic Regression (SMOTE)")
 
-"""##Random Forest"""
+"""##Random Forest Models"""
 
 from sklearn.ensemble import RandomForestClassifier
 
@@ -505,16 +517,18 @@ plt.title("ROC Curve")
 plt.legend()
 plt.show()
 
-"""###Evaluation Metrics"""
+"""###Default Random Forest Model"""
 
+#Deafult Random Forest model
 rf = RandomForestClassifier(n_estimators=100, max_depth=5, random_state=42)
 rf.fit(X_train, y_train)
 y_pred_rf = rf.predict(X_test)
 y_prob_rf = rf.predict_proba(X_test)[:, 1]
+
 # Run evaluation
 auc_rf = evaluate_model(y_test, y_pred_rf, y_prob_rf, "Random Forest")
 
-"""###Handling Class Imbalance"""
+"""###Random Forest with class_weight"""
 
 # Model with class_weight='balanced' to address class imbalance
 rf_balanced = RandomForestClassifier(n_estimators=100, max_depth=5, class_weight='balanced', random_state=42)
@@ -523,9 +537,9 @@ y_pred_rf_bal = rf_balanced.predict(X_test)
 y_prob_rf_bal = rf_balanced.predict_proba(X_test)[:, 1]
 
 # Evaluation
-metrics_rf_bal = evaluate_model(y_test, y_pred_rf_bal, y_prob_rf_bal, "Random Forest (Balanced)")
+metrics_rf = evaluate_model(y_test, y_pred_rf, y_prob_rf, "Random Forest (Default)")
 
-"""###SMOTE"""
+"""###Random Forest with SMOTE"""
 
 # Fit a model on SMOTE-resampled data
 rf_smote = RandomForestClassifier(n_estimators=100, random_state=42)
@@ -537,11 +551,11 @@ y_prob_rf_smote = rf_smote.predict_proba(X_test)[:, 1]
 # Evaluate
 metrics_rf_smote = evaluate_model(y_test, y_pred_rf_smote, y_prob_rf_smote, "Random Forest (SMOTE)")
 
-"""##Hyperparameter Tuning"""
+"""###Random Forest with Hyperparameter Tuning"""
 
 from sklearn.model_selection import GridSearchCV
 
-# Hyperparameter optimization for Random Forest using GridSearchCV
+# Hyperparameter optimization for Random Forest
 param_grid = {
     'n_estimators': [50, 100, 150],
     'max_depth': [3, 5, 10, None],
@@ -566,9 +580,69 @@ print("Best CV F1-score:", grid_rf.best_score_)
 best_rf = grid_rf.best_estimator_
 y_pred_best_rf = best_rf.predict(X_test)
 y_prob_best_rf = best_rf.predict_proba(X_test)[:, 1]
-evaluate_model(y_test, y_pred_best_rf, y_prob_best_rf, "Random Forest (Tuned)")
+metrics_rf_tuned = evaluate_model(y_test, y_pred_best_rf, y_prob_best_rf, "Random Forest (Tuned)")
 
-"""##Compare Train and Test performance"""
+"""##Deep Learning Model"""
+
+X_train = X_train.astype('float32')
+X_test = X_test.astype('float32')
+
+# Import
+import tensorflow as tf
+from tensorflow.keras.models import Sequential
+from tensorflow.keras.layers import Dense, Dropout
+from tensorflow.keras.callbacks import EarlyStopping
+
+# Deep Learning model for Heart Disease Prediction
+model = Sequential([
+    Dense(64, activation='relu', input_shape=(X_train.shape[1],)),
+    Dropout(0.3),
+    Dense(32, activation='relu'),
+    Dropout(0.3),
+    Dense(1, activation='sigmoid')  # Mivel bináris osztályozás
+])
+
+# Compile
+model.compile(optimizer='adam',
+              loss='binary_crossentropy',
+              metrics=['accuracy', tf.keras.metrics.AUC(name='auc')])
+
+# Early stopping to avoid overfitting
+early_stop = EarlyStopping(monitor='val_loss', patience=10, restore_best_weights=True)
+
+# Fit model
+history = model.fit(
+    X_train, y_train,
+    epochs=100,
+    batch_size=32,
+    validation_split=0.2,
+    callbacks=[early_stop],
+    verbose=1
+)
+
+"""###Prediction and Evaluation"""
+
+# Predict
+y_prob_dl = model.predict(X_test).flatten()
+y_pred_dl = (y_prob_dl >= 0.5).astype(int)
+
+# Evaluate
+metrics_dl = evaluate_model(y_test, y_pred_dl, y_prob_dl, "Deep Learning (MLP)")
+
+"""###Learning curves"""
+
+# Learning curves
+plt.figure(figsize=(10, 5))
+plt.plot(history.history['loss'], label='Train Loss')
+plt.plot(history.history['val_loss'], label='Val Loss')
+plt.title("Model Loss During Training")
+plt.xlabel("Epoch")
+plt.ylabel("Loss")
+plt.legend()
+plt.grid(True)
+plt.show()
+
+"""##Compare Train and Test Performance"""
 
 def compare_train_test(model, X_train, y_train, X_test, y_test, model_name):
     # Predictions
@@ -591,15 +665,89 @@ def compare_train_test(model, X_train, y_train, X_test, y_test, model_name):
     train_metrics = get_metrics(y_train, y_train_pred, y_train_prob)
     test_metrics = get_metrics(y_test, y_test_pred, y_test_prob)
 
-    # Display as DataFrame
-    import pandas as pd
+    #Display
     comparison_df = pd.DataFrame([train_metrics, test_metrics], index=["Train", "Test"])
-    print(f"\n Train vs. Test Performance for {model_name}")
+    print(f"\nTrain vs. Test Performance for {model_name}")
     display(comparison_df.round(3))
 
-# Run for both models
+    return train_metrics, test_metrics
+
+"""###Run for both models"""
+
 compare_train_test(logreg, X_train, y_train, X_test, y_test, "Logistic Regression")
 compare_train_test(rf, X_train, y_train, X_test, y_test, "Random Forest")
+
+"""##Final Model Comaprison"""
+
+def evaluate_model(y_true, y_pred, y_prob, model_name):
+    acc = accuracy_score(y_true, y_pred)
+    prec = precision_score(y_true, y_pred)
+    rec = recall_score(y_true, y_pred)
+    f1 = f1_score(y_true, y_pred)
+    auc = roc_auc_score(y_true, y_prob)
+
+    print(f"\n{model_name} Evaluation:")
+    print(classification_report(y_true, y_pred))
+    print(f"Accuracy: {acc:.3f} | Precision: {prec:.3f} | Recall: {rec:.3f} | F1-score: {f1:.3f} | ROC AUC: {auc:.3f}")
+
+    # Confusion matrix
+    sns.heatmap(confusion_matrix(y_true, y_pred), annot=True, fmt='d', cmap='Blues')
+    plt.title(f"Confusion Matrix - {model_name}")
+    plt.xlabel("Predicted")
+    plt.ylabel("Actual")
+    plt.show()
+
+    # ROC curve
+    fpr, tpr, _ = roc_curve(y_true, y_prob)
+    plt.plot(fpr, tpr, label=f'{model_name} (AUC = {auc:.2f})')
+    plt.plot([0, 1], [0, 1], 'k--')
+    plt.xlabel("False Positive Rate")
+    plt.ylabel("True Positive Rate")
+    plt.title(f"ROC Curve - {model_name}")
+    plt.legend()
+    plt.grid(True)
+    plt.show()
+
+    # Return metrics as dict
+    return {
+        'Model': model_name,
+        'Accuracy': acc,
+        'Precision': prec,
+        'Recall': rec,
+        'F1-score': f1,
+        'ROC AUC': auc
+    }
+
+results = []
+
+# Logistic Regression (default)
+results.append(evaluate_model(y_test, y_pred_logreg, y_prob_logreg, "LogReg"))
+
+# Logistic Regression (class_weight)
+results.append(evaluate_model(y_test, y_pred_logreg_bal, y_prob_logreg_bal, "LogReg Balanced"))
+
+# Logistic Regression (SMOTE)
+results.append(evaluate_model(y_test, y_pred_logreg_smote, y_prob_logreg_smote, "LogReg SMOTE"))
+
+# Random Forest (default)
+results.append(evaluate_model(y_test, y_pred_rf, y_prob_rf, "RF"))
+
+# Random Forest (balanced)
+results.append(evaluate_model(y_test, y_pred_rf_bal, y_prob_rf_bal, "RF Balanced"))
+
+# Random Forest (SMOTE)
+results.append(evaluate_model(y_test, y_pred_rf_smote, y_prob_rf_smote, "RF SMOTE"))
+
+# Random Forest (tuned)
+results.append(evaluate_model(y_test, y_pred_best_rf, y_prob_best_rf, "RF Tuned"))
+
+# Deep Learning
+results.append(evaluate_model(y_test, y_pred_dl, y_prob_dl, "Deep Learning (MLP)"))
+
+import pandas as pd
+results_df = pd.DataFrame(results)
+results_df = results_df.sort_values(by="F1-score", ascending=False)
+display(results_df)
 
 """##Cross Validation"""
 
@@ -631,29 +779,29 @@ evaluate_model(y_test, y_pred_logreg, y_prob_logreg, "Logistic Regression")
 # Random Forest
 evaluate_model(y_test, y_pred_rf, y_prob_rf, "Random Forest")
 
+"""##Choosing the best model"""
+
+#Choosing best model based on F1 score
+best_model_name = results_df.iloc[0]['Model']
+print(f"Thebest model based on F1 score: {best_model_name}")
+
 """##Saving the best model"""
 
 import joblib
+joblib.dump(best_rf, "best_model.pkl")
 
-# Compare the 'auc' values instead of the entire dictionaries
-if auc_rf['auc'] > auc_logreg['auc']:
-    print("Saving Random Forest as best model")
-    joblib.dump(rf, 'best_model_rf.pkl')
-    best_model = rf
+model.save("best_mlp_model.h5")
+
+# Save best model based on name
+if best_model_name == "RF Tuned":
+    joblib.dump(best_rf, "best_model.pkl")
+elif best_model_name == "RF":
+    joblib.dump(rf_default, "best_model.pkl")
+elif best_model_name == "LogReg":
+    joblib.dump(logreg, "best_model.pkl")
+elif best_model_name == "LogReg SMOTE":
+    joblib.dump(logreg_smote, "best_model.pkl")
+elif best_model_name == "Deep Learning (MLP)":
+    model.save("best_dl_model.h5")
 else:
-    print("Saving Logistic Regression as best model")
-    joblib.dump(logreg, 'best_model_logreg.pkl')
-    best_model = logreg
-
-# Load model
-model_loaded = joblib.load('best_model_rf.pkl')
-preds = model_loaded.predict(X_test)
-
-#???
-import re
-
-with open('path.py', 'r') as f:
-    code = f.read()
-
-fits = re.findall(r'\.fit\(', code)
-print(f".fit() number of calls: {len(fits)}")
+    print("Best model")
